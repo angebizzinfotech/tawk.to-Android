@@ -175,7 +175,7 @@ class ImagesAdapter(
 
 
     override fun onBindViewHolder(holder: BaseViewHolder<*>, position: Int) {
-        holder.setIsRecyclable(false)
+        holder.setIsRecyclable(true)
         when (getItemViewType(position)) {
 
             ITEM -> {
@@ -184,13 +184,66 @@ class ImagesAdapter(
 
                 val userListResponseItem = userListItems!![position]
 
-                holder.bind(userListResponseItem, context = context, holder.adapterPosition)
+                holder.bind(userListResponseItem, context = context, holder.adapterPosition+1)
+
+                holder.tv_username.text = userListResponseItem.login
+                holder.tv_url.text = userListResponseItem.url
+                holder.iv_notes.visibility = View.GONE
+
+                val db = AppDb(context)
+                val note = db.noteDao().getNote(userListResponseItem.id)
+                if (note != null) {
+                    holder.iv_notes.visibility = View.VISIBLE
+                }
+
+                if ((position) % 4 == 0) {
+                    try {
+                        var invertIm: Bitmap? = null
+                        if (userListResponseItem.avatar_url!!.contains("http")) {
+                            if (AppUtils.isNetworkAvailable(context)) {
+
+
+                                GlobalScope.launch(Dispatchers.IO){
+
+                                    val url = URL(userListResponseItem.avatar_url)
+
+                                    val image = BitmapFactory.decodeStream(
+                                        url.openConnection().getInputStream()
+                                    )
+
+                                    invertIm = invertImage(image)!!
+
+                                    launch(Dispatchers.Main){
+                                        Glide.with(context.applicationContext).load(invertIm)
+                                            .into(holder.img_profile_image)
+                                    }
+                                }
+                            } else {
+                                Glide.with(context.applicationContext).load(R.drawable.user_default)
+                                    .into(holder.img_profile_image)
+                            }
+
+                        } else {
+
+                            val bitmap = BitmapFactory.decodeFile(userListResponseItem.avatar_url)
+                            invertIm = invertImage(bitmap)!!
+                        }
+
+                    } catch (e: IOException) {
+                        println(e)
+                    }
+                } else {
+
+                    if (context.applicationContext != null) {
+
+                        Glide.with(context.applicationContext).load(userListResponseItem.avatar_url)
+                            .into(holder.img_profile_image)
+                    }
+                }
 
                 holder.cv_usercard.setOnClickListener(View.OnClickListener {
                     onClickListen.onDataClick(position, userListResponseItem.login!!)
                 })
-
-
             }
 
             LOADING -> {
@@ -217,6 +270,40 @@ class ImagesAdapter(
         }
     }
 
+    fun invertImage(src: Bitmap): Bitmap? {
+        // create new bitmap with the same attributes(width,height)
+        //as source bitmap
+        val bmOut = Bitmap.createBitmap(src.width, src.height, src.config)
+        // color info
+        var A: Int
+        var R: Int
+        var G: Int
+        var B: Int
+        var pixelColor: Int
+        // image size
+        val height = src.height
+        val width = src.width
+
+        // scan through every pixel
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                // get one pixel
+                pixelColor = src.getPixel(x, y)
+                // saving alpha channel
+                A = Color.alpha(pixelColor)
+                // inverting byte for each R/G/B channel
+                R = 255 - Color.red(pixelColor)
+                G = 255 - Color.green(pixelColor)
+                B = 255 - Color.blue(pixelColor)
+                // set newly-inverted pixel to output image
+                bmOut.setPixel(x, y, Color.argb(A, R, G, B))
+            }
+        }
+
+        // return final bitmap
+        return bmOut
+    }
+
 
     abstract class BaseViewHolder<T>(itemView: View) : RecyclerView.ViewHolder(itemView) {
 
@@ -235,95 +322,7 @@ class ImagesAdapter(
         override fun bind(item: UserListResponseItem, context: Context, position: Int) {
 
 
-            tv_username.text = item.login
-            tv_url.text = item.url
-            iv_notes.visibility = View.GONE
 
-            val db = AppDb(context)
-            val note = db.noteDao().getNote(item.id)
-            if (note != null) {
-                iv_notes.visibility = View.VISIBLE
-            }
-
-            if ((position + 1) % 4 == 0) {
-                try {
-                    var invertIm: Bitmap? = null
-                    if (item.avatar_url!!.contains("http")) {
-                        if (AppUtils.isNetworkAvailable(context)) {
-
-
-                            GlobalScope.launch(Dispatchers.IO){
-
-                                val url = URL(item.avatar_url)
-
-                                val image = BitmapFactory.decodeStream(
-                                    url.openConnection().getInputStream()
-                                )
-
-                                invertIm = invertImage(image)!!
-
-                                launch(Dispatchers.Main){
-                                    Glide.with(context.applicationContext).load(invertIm)
-                                        .into(img_profile_image)
-                                }
-                            }
-                        } else {
-                            Glide.with(context.applicationContext).load(R.drawable.user_default)
-                                .into(img_profile_image)
-                        }
-
-                    } else {
-
-                        val bitmap = BitmapFactory.decodeFile(item.avatar_url)
-                        invertIm = invertImage(bitmap)!!
-                    }
-
-                } catch (e: IOException) {
-                    println(e)
-                }
-            } else {
-
-                if (context.applicationContext != null) {
-
-                    Glide.with(context.applicationContext).load(item.avatar_url)
-                        .into(img_profile_image)
-                }
-            }
-        }
-
-
-        fun invertImage(src: Bitmap): Bitmap? {
-            // create new bitmap with the same attributes(width,height)
-            //as source bitmap
-            val bmOut = Bitmap.createBitmap(src.width, src.height, src.config)
-            // color info
-            var A: Int
-            var R: Int
-            var G: Int
-            var B: Int
-            var pixelColor: Int
-            // image size
-            val height = src.height
-            val width = src.width
-
-            // scan through every pixel
-            for (y in 0 until height) {
-                for (x in 0 until width) {
-                    // get one pixel
-                    pixelColor = src.getPixel(x, y)
-                    // saving alpha channel
-                    A = Color.alpha(pixelColor)
-                    // inverting byte for each R/G/B channel
-                    R = 255 - Color.red(pixelColor)
-                    G = 255 - Color.green(pixelColor)
-                    B = 255 - Color.blue(pixelColor)
-                    // set newly-inverted pixel to output image
-                    bmOut.setPixel(x, y, Color.argb(A, R, G, B))
-                }
-            }
-
-            // return final bitmap
-            return bmOut
         }
 
     }
