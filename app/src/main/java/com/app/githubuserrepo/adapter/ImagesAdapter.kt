@@ -175,7 +175,7 @@ class ImagesAdapter(
 
 
     override fun onBindViewHolder(holder: BaseViewHolder<*>, position: Int) {
-
+        holder.setIsRecyclable(false)
         when (getItemViewType(position)) {
 
             ITEM -> {
